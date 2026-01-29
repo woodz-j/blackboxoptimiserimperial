@@ -17,7 +17,7 @@ This capstone focuses on machine learning while also building strong foundations
 ---
 ## Non-technical write-up
 In this project, I built a system that learns how to make smart decisions when testing expensive or unknown processes. Instead of trying every possible option, the model uses past results to predict which choices are most promising and which are still uncertain. Early on, it explores widely to learn how the system behaves, and later it focuses on refining the best-performing options. This approach allowed me to find strong solutions using far fewer tests than a trial-and-error method. Overall, the project demonstrates how careful, data-efficient optimisation can save time and resources while still achieving high performance.
----
+
 
 ## Inputs and Outputs
 
