@@ -15,6 +15,9 @@ Over the course of the project, the model improves incrementally based on observ
 This capstone focuses on machine learning while also building strong foundations for a future career in **Data Engineering**. It encourages thinking like both an ML practitioner and a data engineer by developing skills to build, optimise, and maintain robust data systems that power intelligent applications.
 
 ---
+## Non-technical write-up
+In this project, I built a system that learns how to make smart decisions when testing expensive or unknown processes. Instead of trying every possible option, the model uses past results to predict which choices are most promising and which are still uncertain. Early on, it explores widely to learn how the system behaves, and later it focuses on refining the best-performing options. This approach allowed me to find strong solutions using far fewer tests than a trial-and-error method. Overall, the project demonstrates how careful, data-efficient optimisation can save time and resources while still achieving high performance.
+---
 
 ## Inputs and Outputs
 
