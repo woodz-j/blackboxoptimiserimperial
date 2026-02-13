@@ -1,109 +1,169 @@
-# Bayesian Optimization of 3-Component Formulation  
-13-Week Study
+# Bayesian Optimisation for 2D Contamination Source Detection
 
-Optimizing a three-component mixture using Gaussian Process–based Bayesian Optimization
+## Project Overview
 
-## Overview
+This project explores how Bayesian Optimisation (BO) can efficiently
+locate likely contamination sources in a 2D area where only close
+proximity produces a measurable reading.
 
-This project applied **Bayesian Optimization** (BO) to maximize the performance of a **three-component formulation** over the bounded domain [0,1]³.
+The search space is extremely sparse: most sampled locations return
+values effectively equal to zero (often between 10\^-80 and 10\^-225).
+This makes naive sampling ineffective and requires a principled strategy
+driven by uncertainty-aware modelling.
 
-- Objective values were consistently **negative** → goal was to **maximize** the response (make it less negative / closest to zero)
-- Surrogate: Gaussian Process
-- Acquisition: Expected Improvement (EI)
-- 13-week iterative process: global exploration → structure learning → exploitation → local refinement → convergence confirmation
+Over 13 weeks, a Gaussian Process (GP) surrogate model combined with
+Upper Confidence Bound (UCB) and Expected Improvement (EI) acquisition
+strategies was progressively refined to reliably explore, then locally
+refine, the search for contamination sources.
 
-The optimization exhibited classic BO behavior, including early exploration, natural clustering into a promising basin, kernel stabilization challenges, and strong local convergence signals.
+------------------------------------------------------------------------
 
-## Methodology
+## Key Technical Challenges
 
-- **Domain**: 3 continuous variables ∈ [0, 1]³  
-- **Surrogate**: GaussianProcessRegressor  
-  - Kernel: Matérn (ν = 2.5)  
-  - Length-scale bounds and noise regularization progressively tightened  
-  - Output normalization (`normalize_y=True`)  
-- **Acquisition function**: Expected Improvement (EI)  
-- **EI optimizer**: Multi-start L-BFGS-B  
-- **Kernel tuning**: Manual bounding + increased noise to prevent length-scale collapse  
-- **Optimizer restarts**: 10 restarts for robustness
+-   Output values span more than 200 orders of magnitude
+-   The response surface appears flat across most of the domain
+-   Early GP models became overconfident due to clustered samples
+-   Acquisition functions repeatedly chose points near existing samples
+-   Required careful output transformation and kernel hyperparameter
+    tuning
 
-## Timeline of Strategy and Results
+------------------------------------------------------------------------
 
-| Week   | Strategy Focus                  | Why / Approach                              | Representative Point                  | Best Result       | Key Insight                              |
-|--------|---------------------------------|---------------------------------------------|----------------------------------------|-------------------|------------------------------------------|
-| 1–2    | Initial exploration             | Seed diverse space                          | Random / initial design                | Mixed values      | Landscape highly non-linear              |
-| 3      | EI global search                | Let GP guide exploration                    | High-uncertainty regions               | Poorer values     | Most space is sub-optimal                |
-| 4      | EI exploration                  | Continue uncertainty sampling               | Edge regions                           | Very negative     | Steep penalties away from center         |
-| 5      | EI begins clustering            | GP learns structure                         | Mid-range region                       | Improving         | Promising basin emerging                 |
-| 6      | EI refinement                   | More samples near basin                     | Around [0.4, 0.3, 0.4]                 | Better            | Basin becoming clear                     |
-| 7      | EI exploitation begins          | Model confident in region                   | [0.1179, 0.1284, 0.4789]               | Moderate          | Third dimension important                |
-| 8      | Kernel issues observed          | Length scale collapse → erratic EI          | Inconsistent                           | —                 | Needed kernel tightening                 |
-| 9      | Kernel bounded + noise          | Stabilize GP                                | Near [0.5, 0.4, 0.45]                  | **-0.00505**      | Core optimum region found                |
-| 10     | Exploitation-leaning EI         | Test local curvature                        | Small perturbations                    | Worse             | Confirm local peak                       |
-| 11     | Pure exploitation               | Maximize GP mean                            | Near incumbent                         | Worse             | GP confidence validated                  |
-| 12     | Local symmetric perturbations   | Stress test optimum                         | ±0.02 changes                          | Worse             | Sharp curvature confirmed                |
-| 13     | Final refinement                | Convergence check                           | Tiny local moves                       | Worse             | Converged                                |
+## Core Design Decisions
 
-## Best Point Found
+  -----------------------------------------------------------------------
+  Component               Choice                  Reason
+  ----------------------- ----------------------- -----------------------
+  Surrogate model         Gaussian Process        Provides predictive
+                                                  uncertainty for BO
 
-```text
-x* = [0.514909, 0.429977, 0.441068]
-y* = -0.0050467853497373665
-```
+  Output transform        Signed log10 scaling    Stabilises GP across
+                                                  extreme magnitudes
 
-No perturbation in the final weeks improved upon this value.
+  Kernel                  RBF with wide bounds    Learns both global and
+                                                  local structure
 
-## Evidence of Convergence
+  Noise level             Near-zero               Measurements are
+                                                  deterministic
 
-EI values near incumbent → ≈ 0
-Very low GP predictive variance at/around best point
-All local refinements → worse performance
-Kernel length-scales stabilized (~0.22–0.25)
-Pure exploitation and exploitation-leaning EI failed to improve
+  Exploration phase       UCB with high kappa     Forces sampling into
+                                                  uncertain regions
 
-→ Strong empirical evidence of local convergence.
+  Refinement phase        EI                      Efficient local
+                                                  optimisation
 
-## Lessons Learned
+  Candidate search        Dense grid              Full acquisition
+                                                  landscape inspection
+  -----------------------------------------------------------------------
 
-EI explores aggressively early unless kernel is well-regularized
-Length-scale collapse causes random / meaningless EI suggestions
-Bounding length-scales + adding controlled noise dramatically stabilizes BO
-Natural clustering of EI proposals is a reliable sign of approaching the optimum
-Repeated failure of local perturbations is one of the strongest convergence signals
+------------------------------------------------------------------------
 
-## Final Conclusion
-The Bayesian Optimization process successfully located and validated a sharp, highly localized optimum in a 3D continuous domain.
-Further sampling consistently degraded performance, and the GP surrogate expressed high confidence in the discovered region.
-The study illustrates a complete BO lifecycle:
-Exploration → Learning → Exploitation → Local refinement → Convergence
+## What We Learned
 
-## Reproducibility – Key Implementation Details
-``` code
-from sklearn.gaussian_process import GaussianProcessRegressor
-from sklearn.gaussian_process.kernels import Matern
+1.  Raw outputs break GP behaviour --- log scaling was essential.
+2.  Early tight clustering caused GP overconfidence and poor
+    exploration.
+3.  Increasing kernel length_scale restored meaningful uncertainty
+    estimates.
+4.  UCB outperformed EI in early sparse exploration.
+5.  EI became useful only after sufficient global coverage.
+6.  Some samples acted like "support vectors" strongly shaping the GP.
+7.  Extremely low readings confirmed a sharply localised source rather
+    than a broad region.
 
-kernel = Matern(
-    length_scale=0.2,
-    length_scale_bounds=(1e-2, 2.0),
-    nu=2.5
-)
+------------------------------------------------------------------------
 
-gp = GaussianProcessRegressor(
-    kernel=kernel,
-    alpha=1e-4,               # noise level
-    normalize_y=True,
-    n_restarts_optimizer=10,
-    random_state=0
-)
-```
-EI optimized via multi-start L-BFGS-B over [0,1]³
-Progressive tightening of kernel bounds and noise was critical for late-stage stability
+## 13-Week Timeline
 
-## Project Outcome
-This 13-week case study demonstrates practical Bayesian Optimization in action, including:
+  ---------------------------------------------------------------------------
+      Week Strategy         Key Change        Result / Observation
+  -------- ---------------- ----------------- -------------------------------
+         1 Initial GP + UCB Raw outputs       GP unstable, poor guidance
 
-Surrogate model debugging
-Kernel parameter control
-Understanding acquisition function dynamics
-Reliable convergence assessment
+         2 Adjust kappa     Minor improvement Still sampling locally
 
-The final result is not merely a point — it is well-supported by the full optimization trajectory.
+         3 Diagnose         Recognised        Planned log transform
+           magnitude issue  scaling problem   
+
+         4 Signed log10     Stabilised GP     Major behaviour improvement
+           transform                          
+
+         5 Introduced EI    Attempted         EI stuck near samples
+                            exploitation      
+
+         6 Increased        Restored          Better exploration
+           length_scale     uncertainty       
+
+         7 High kappa UCB   Forced            Sampling far regions
+                            exploration       
+
+         8 Wider kernel     GP learned global Improved sigma spread
+           bounds           structure         
+
+         9 Identified       Better            Guided queries
+           support-vector   understanding     
+           points                             
+
+        10 Phase-based      Balanced strategy Improved sampling logic
+           UCB/EI                             
+
+        11 Local EI         Around best       Confirmed rapid decay
+           refinement       region            
+
+        12 Large-scale UCB  Global coverage   Diminishing returns observed
+           exploration                        
+
+        13 Mature hybrid    UCB + EI          Converged, principled BO
+           pipeline                           process
+  ---------------------------------------------------------------------------
+
+------------------------------------------------------------------------
+
+## Current Best Practice Pipeline
+
+1.  Apply signed log10 transform to outputs
+2.  Fit GP with:
+    -   RBF kernel
+    -   Broad length_scale bounds
+    -   Multiple optimiser restarts
+3.  Use UCB (kappa ≥ 6) for global exploration
+4.  Switch to EI for local refinement
+5.  Monitor predictive sigma to confirm meaningful uncertainty
+
+------------------------------------------------------------------------
+
+## Why This Approach Is Technically Sound
+
+This pipeline follows established best practices in Gaussian Process
+regression and Bayesian Optimisation under sparse, high dynamic-range
+conditions. The exploration--exploitation balance mirrors approaches
+used in modern BO frameworks.
+
+------------------------------------------------------------------------
+
+## Future Extensions
+
+-   Deep Kernel Learning for scalability
+-   Uncertainty-aware neural networks with larger datasets
+-   Migration to BoTorch or GPyTorch for GPU acceleration
+-   Trust-region Bayesian optimisation for faster local convergence
+
+------------------------------------------------------------------------
+
+## Key Takeaway
+
+> In extremely sparse search spaces, most of Bayesian Optimisation
+> effort goes into conditioning the model correctly rather than tuning
+> the acquisition function.
+
+------------------------------------------------------------------------
+
+## Suggested Repository Structure
+
+    /src
+        gp_model.py
+        acquisition.py
+        optimizer_loop.py
+    /data
+        samples.csv
+    README.md
